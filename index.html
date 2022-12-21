@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exif-js/2.3.0/exif.js"></script>
+    <!--  exif-js 函式庫 -->
+    <!-- <script src="https://unpkg.com/exif-js"></script> -->
+    <!--  JavaScript 的 File API -->
+    <script src="./js/piexif.js"></script>
+  </head>
+  <body>
+    <h2>6. FileReader.readAsArrayBuffer - XMP // ok | 亂碼、有的檔案這步會出現錯誤</h2>
+    <input type="file" id="file-input_6" />
+    <div id="desc_6" style="white-space: pre"></div>
+    <script>
+      const fileInput_6 = document.querySelector("#file-input_6");
+
+      fileInput_6.addEventListener("change", () => {
+        const file = fileInput_6.files[0];
+        readXmpData(file);
+      });
+
+      // 定義一個函數，用於讀取照片檔案並解析其中的 XMP 元數據
+      function readXmpData(file) {
+        const myDesc = document.querySelector("#desc_6");
+        let txt = "";
+
+        // 使用 FileReader 讀取照片檔案
+        const reader = new FileReader();
+        reader.readAsArrayBuffer(file);
+
+        // 當檔案讀取完成時，解析 XMP 元數據
+        reader.onload = function () {
+          // 將檔案轉換為二進制字串
+          const binary = reader.result;
+          console.log(6, "binary", binary);
+          const binaryString = String.fromCharCode.apply(null, new Uint8Array(binary));
+          console.log(6, "new Uint8Array(binary)", new Uint8Array(binary));
+          console.log(6, "binaryString", binaryString);
+          // 有的檔案這步會出現錯誤： Uncaught RangeError: Maximum call stack size exceeded
+
+          // 搜尋 XMP 元數據的開頭和結尾
+          const xmpStart = binaryString.indexOf("<x:xmpmeta");
+          const xmpEnd = binaryString.indexOf("</x:xmpmeta>");
+
+          // 如果找到 XMP 元數據，則提取出 XMP 元數據的字串
+          if (xmpStart !== -1 && xmpEnd !== -1) {
+            const xmpString = binaryString.substring(xmpStart, xmpEnd + "</x:xmpmeta>".length);
+
+            // 使用 DOMParser 解析 XMP 元數據
+            const parser = new DOMParser();
+            const xmpData = parser.parseFromString(xmpString, "text/xml");
+            // console.log("xmpData", xmpData);
+
+            // 例如，您可以使用以下語法來讀取標題：
+            // const title = xmpData.querySelector('dc:title').textContent;
+            // console.log(title);
+            const titles = xmpData.getElementsByTagName("rdf:li"); // undefined
+
+            for (let i = 0; i < titles.length; i++) {
+              txt += "6, " + i + ": " + titles[i].innerHTML + "\n";
+            }
+            console.log(6, txt);
+          } else {
+            console.log(6, "xmpStart", xmpStart, "xmpEnd", xmpEnd);
+          }
+
+          myDesc.innerHTML = txt;
+        };
+      }
+    </script>
+    <hr />
+
+    <h2>4. exif-js iptcdata // ok | 亂碼</h2>
+    <input type="file" id="file-input_4" />
+    <div id="myDesc_4" style="white-space: pre"></div>
+    <script>
+      const fileInput_4 = document.querySelector("#file-input_4");
+      const myDesc_4 = document.querySelector("#myDesc_4");
+
+      fileInput_4.addEventListener("change", () => {
+        const file = fileInput_4.files[0];
+
+        EXIF.getData(file, function () {
+          // const description = this.iptcdata["2#120"]; // undefined
+          // 加入說明資訊的 IPTC (International Press Telecommunications Council) 標籤為 2#120
+          // 標籤: https://iptc.org/std/photometadata/specification/mapping/iptc-pmd-newsmlg2.html
+          const description = this.iptcdata; // a object
+
+          console.log(4, "加入說明資訊 description: \n", description);
+          myDesc_4.innerHTML = "4, 加入說明資訊: \n" + JSON.stringify(description);
+        });
+      });
+    </script>
+
+    <hr />
+    <h2>3. exif-js getAllTags // ok | 亂碼</h2>
+
+    <input type="file" id="myFileInput_3" />
+    <div id="desc_3" style="word-break: break-all; word-wrap: break-word"></div>
+
+    <script>
+      const input_3 = document.getElementById("myFileInput_3");
+
+      input_3.addEventListener("change", function () {
+        let file = input_3.files[0];
+
+        EXIF.getData(file, function () {
+          const exifData = EXIF.getAllTags(this);
+          const myDesc = document.querySelector("#desc_3");
+
+          console.log(3, "exif-js", exifData);
+          myDesc.innerHTML = "3, " + JSON.stringify(exifData);
+        });
+      });
+    </script>
+
+    <!-- <hr />
+    <h2>2. web API FileList key // some, arrayBuffer (can not)</h2> -->
+    <!-- <form id="myForm">
+      <input type="file" id="myFileInput" multiple />
+    </form>
+    <div id="desc" style="white-space: pre"></div>
+
+    <script>
+      const input = document.getElementById("myFileInput");
+      const myDesc = document.querySelector("#desc");
+
+      input.addEventListener("change", function () {
+        let files = input.files;
+        let txt = "";
+
+        for (let i in files) {
+          let l = 0;
+          for (let key in files[i]) {
+            l++;
+            let s = `"FileList: " ${i}-${l}:: ${key} :: ${files[i][key]}`;
+            console.log(s);
+            txt += s + "\n";
+          }
+        }
+        myDesc.innerHTML = txt;
+      });
+    </script> -->
+
+    <!-- <hr />
+    <h2>1. img.getAttribute(attr) // dom attr (can not)</h2> -->
+    <!-- <img id="ewe" src="./005.jpg" alt="" />
+    <script>
+      const img = document.querySelector("#ewe");
+      img.onload = function () {
+        const dateTaken = img.getAttribute("id");
+        console.log("img.getAttribute", dateTaken); // 只能找 dom 上的屬性
+      };
+    </script> -->
+
+    <!-- <hr />
+    <h2>5. FileReader.readAsDataURL // base64 (not right)</h2> -->
+    <!-- <form id="myForm">
+      <input type="file" id="myFileInput" accept="image/*" />
+    </form>
+    <script>
+      const input = document.getElementById("myFileInput");
+      input.addEventListener("change", function () {
+        let file = input.files[0];
+
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = function () {
+          const image = new Image();
+          image.src = reader.result;
+          image.onload = function () {
+            console.log("FileReader2 image", image); // base64
+          };
+        };
+      });
+    </script> -->
+  </body>
+</html>
