@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exif-js/2.3.0/exif.js"></script>
+    <!--  exif-js 函式庫 -->
+    <!-- <script src="https://unpkg.com/exif-js"></script> -->
+
+    <!-- 
+     The `defer` attribute causes the callback to execute after the full HTML
+     document has been parsed. For non-blocking uses, avoiding race conditions,
+     and consistent behavior across browsers, consider loading using Promises
+     with https://www.npmjs.com/package/@googlemaps/js-api-loader.
+    -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC_OmHxhz7NZ9-4bJi0IaSH7d_bVina7rE&callback=runMap" defer></script>
+    <!-- 7.1 取得權限 (必須 &callback=runMap) -->
+    <style>
+      .desc {
+        font-family: monospace;
+        white-space: pre-wrap;
+        word-break: break-all;
+        word-wrap: break-word;
+      }
+      .map_canvas {
+        height: 150px;
+        background-color: antiquewhite;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>8. 照片資訊</h2>
+    <input type="file" id="file-input_8" />
+    <!-- [ ] command nfo -->
+
+    <div id="desc_8" class="desc">
+      <!-- 
+        remove/sort
+        img/file/text
+        tag
+        command info: ol>li> 
+        added other info: ol>li
+        <open other>
+          pop > other info: ol>li>
+        -->
+    </div>
+    <div>
+      list by time line block<br />
+      area area area
+    </div>
+    <script>
+      const fileInput_8 = document.querySelector("#file-input_6");
+
+      fileInput_8.addEventListener("change", () => {
+        const files = fileInput_8.files;
+        for (let f = 0; f < files.length; f++) {
+          readXmpData(files[f]);
+        }
+      });
+
+      // 定義一個函數，用於讀取照片檔案並解析其中的 XMP 元數據
+      function readXmpData(file) {
+        const myDesc = document.querySelector("#desc_6");
+        let txt = "";
+
+        // 使用 FileReader 讀取照片檔案
+        const reader = new FileReader();
+        reader.readAsArrayBuffer(file);
+
+        // 當檔案讀取完成時，解析 XMP 元數據
+        reader.onload = function () {
+          // 將檔案轉換為二進制字串
+          const binary = reader.result;
+          console.log(6, "binary", binary);
+          const binaryString = String.fromCharCode.apply(null, new Uint8Array(binary));
+          console.log(6, "new Uint8Array(binary)", new Uint8Array(binary));
+          console.log(6, "binaryString", binaryString);
+          // 有的檔案這步會出現錯誤： Uncaught RangeError: Maximum call stack size exceeded
+
+          // 搜尋 XMP 元數據的開頭和結尾
+          const xmpStart = binaryString.indexOf("<x:xmpmeta");
+          const xmpEnd = binaryString.indexOf("</x:xmpmeta>");
+
+          // 如果找到 XMP 元數據，則提取出 XMP 元數據的字串
+          if (xmpStart !== -1 && xmpEnd !== -1) {
+            const xmpString = binaryString.substring(xmpStart, xmpEnd + "</x:xmpmeta>".length);
+
+            // 使用 DOMParser 解析 XMP 元數據
+            const parser = new DOMParser();
+            const xmpData = parser.parseFromString(xmpString, "text/xml");
+            // console.log("xmpData", xmpData);
+
+            // 例如，您可以使用以下語法來讀取標題：
+            // const title = xmpData.querySelector('dc:title').textContent;
+            // console.log(title);
+            const titles = xmpData.getElementsByTagName("rdf:li"); // undefined
+
+            for (let i = 0; i < titles.length; i++) {
+              txt += "6, " + i + ": " + titles[i].innerHTML + "\n";
+            }
+            console.log(6, txt);
+          } else {
+            console.log(6, "xmpStart", xmpStart, "xmpEnd", xmpEnd);
+          }
+
+          myDesc.innerHTML = txt;
+        };
+      }
+    </script>
+    <!--  -->
+    <hr />
+    <!--  -->
+    <h2>7. google map api + 取得本機權限</h2>
+    <div id="map_canvas_7" class="map_canvas"></div>
+
+    <script>
+      // 建立新的 google map 在 #map_canvas_7 並給初始資訊
+      // 若允許定位 初始為當下位置
+      // 若無則預設位置
+      // 按鈕時再詢問或設定一次 (若之前沒確定過)
+
+      // Note: This example requires that you consent to location sharing when
+      // prompted by your browser. If you see the error "The Geolocation service
+      // failed.", it means you probably did not give permission for the browser to
+      // locate you.
+      let map, infoWindow;
+
+      function runMap() {
+        // 初始 map
+        map = new google.maps.Map(document.getElementById("map_canvas_7"), {
+          center: { lat: -34.397, lng: 150.644 },
+          zoom: 6
+        });
+        infoWindow = new google.maps.InfoWindow();
+
+        askPos();
+
+        // UI map btn
+        const locationButton = document.createElement("button");
+
+        locationButton.textContent = "Pan to Current Location";
+        locationButton.classList.add("custom-map-control-button");
+        map.controls[google.maps.ControlPosition.TOP_CENTER].push(locationButton);
+        locationButton.addEventListener("click", () => {
+          askPos();
+        });
+      }
+
+      function askPos() {
+        // Try HTML5 geolocation.
+        if (navigator.geolocation) {
+          //   // permissions
+          //   navigator.permissions.query({ name: "geolocation" }).then((result) => {
+          //     if (result.state === "granted") {
+          //       // showMap();
+          //     } else if (result.state === "prompt") {
+          //       // showButtonToEnableMap();
+          //     }
+          //     // Don't do anything if the permission was denied.
+          //   });
+
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              const pos = {
+                lat: position.coords.latitude,
+                lng: position.coords.longitude
+              };
+
+              // 設定中心位置
+              infoWindow.setPosition(pos);
+              infoWindow.setContent("Location found.");
+              // 顯示地圖
+              infoWindow.open(map);
+              // 設定位
+              map.setCenter(pos);
+              console.log(7.1, "yes");
+            },
+            () => {
+              console.log(7.1, "no");
+              handleLocationError(true, infoWindow, map.getCenter());
+            }
+          );
+        } else {
+          // Browser doesn't support Geolocation
+          console.log(7.1, "Browser doesn't support Geolocation");
+          handleLocationError(false, infoWindow, map.getCenter());
+        }
+      }
+
+      function initMap() {
+        map = new google.maps.Map(document.getElementById("map"), {
+          center: { lat: -34.397, lng: 150.644 },
+          zoom: 6
+        });
+        infoWindow = new google.maps.InfoWindow();
+
+        const locationButton = document.createElement("button");
+
+        locationButton.textContent = "Pan to Current Location";
+        locationButton.classList.add("custom-map-control-button");
+        map.controls[google.maps.ControlPosition.TOP_CENTER].push(locationButton);
+        locationButton.addEventListener("click", () => {
+          // Try HTML5 geolocation.
+          if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+              (position) => {
+                const pos = {
+                  lat: position.coords.latitude,
+                  lng: position.coords.longitude
+                };
+
+                infoWindow.setPosition(pos);
+                infoWindow.setContent("Location found.");
+                infoWindow.open(map);
+                map.setCenter(pos);
+              },
+              () => {
+                handleLocationError(true, infoWindow, map.getCenter());
+              }
+            );
+          } else {
+            // Browser doesn't support Geolocation
+            handleLocationError(false, infoWindow, map.getCenter());
+          }
+        });
+      }
+
+      function handleLocationError(browserHasGeolocation, infoWindow, pos) {
+        infoWindow.setPosition(pos);
+        infoWindow.setContent(browserHasGeolocation ? "Error: The Geolocation service failed." : "Error: Your browser doesn't support geolocation.");
+        infoWindow.open(map);
+      }
+
+      // window.initMap = initMap;
+      window.initMap = runMap;
+    </script>
+
+    <hr />
+    <h2>6. FileReader.readAsArrayBuffer - XMP // ok | 亂碼、有的檔案這步會出現錯誤</h2>
+    <input type="file" id="file-input_6" />
+    <div id="desc_6" class="desc"></div>
+    <script>
+      const fileInput_6 = document.querySelector("#file-input_6");
+
+      fileInput_6.addEventListener("change", () => {
+        const file = fileInput_6.files[0];
+        readXmpData(file);
+      });
+
+      // 定義一個函數，用於讀取照片檔案並解析其中的 XMP 元數據
+      function readXmpData(file) {
+        const myDesc = document.querySelector("#desc_6");
+        let txt = "";
+
+        // 使用 FileReader 讀取照片檔案
+        const reader = new FileReader();
+        reader.readAsArrayBuffer(file);
+
+        // 當檔案讀取完成時，解析 XMP 元數據
+        reader.onload = function () {
+          // 將檔案轉換為二進制字串
+          const binary = reader.result;
+          console.log(6, "binary", binary);
+          const binaryString = String.fromCharCode.apply(null, new Uint8Array(binary));
+          console.log(6, "new Uint8Array(binary)", new Uint8Array(binary));
+          console.log(6, "binaryString", binaryString);
+          // 有的檔案這步會出現錯誤： Uncaught RangeError: Maximum call stack size exceeded
+
+          // 搜尋 XMP 元數據的開頭和結尾
+          const xmpStart = binaryString.indexOf("<x:xmpmeta");
+          const xmpEnd = binaryString.indexOf("</x:xmpmeta>");
+
+          // 如果找到 XMP 元數據，則提取出 XMP 元數據的字串
+          if (xmpStart !== -1 && xmpEnd !== -1) {
+            const xmpString = binaryString.substring(xmpStart, xmpEnd + "</x:xmpmeta>".length);
+
+            // 使用 DOMParser 解析 XMP 元數據
+            const parser = new DOMParser();
+            const xmpData = parser.parseFromString(xmpString, "text/xml");
+            // console.log("xmpData", xmpData);
+
+            // 例如，您可以使用以下語法來讀取標題：
+            // const title = xmpData.querySelector('dc:title').textContent;
+            // console.log(title);
+            const titles = xmpData.getElementsByTagName("rdf:li"); // undefined
+
+            for (let i = 0; i < titles.length; i++) {
+              txt += "6, " + i + ": " + titles[i].innerHTML + "\n";
+            }
+            console.log(6, txt);
+          } else {
+            console.log(6, "xmpStart", xmpStart, "xmpEnd", xmpEnd);
+          }
+
+          myDesc.innerHTML = txt;
+        };
+      }
+    </script>
+    <hr />
+
+    <h2>4. exif-js iptcdata // ok | 亂碼</h2>
+    <input type="file" id="file-input_4" />
+    <div id="myDesc_4" class="desc"></div>
+    <script>
+      const fileInput_4 = document.querySelector("#file-input_4");
+      const myDesc_4 = document.querySelector("#myDesc_4");
+
+      fileInput_4.addEventListener("change", () => {
+        const file = fileInput_4.files[0];
+
+        EXIF.getData(file, function () {
+          // const description = this.iptcdata["2#120"]; // undefined
+          // 加入說明資訊的 IPTC (International Press Telecommunications Council) 標籤為 2#120
+          // 標籤: https://iptc.org/std/photometadata/specification/mapping/iptc-pmd-newsmlg2.html
+          const t = this; // a object
+
+          console.log(4, "資訊: \n", t);
+          myDesc_4.innerHTML = "4, 資訊: \n" + JSON.stringify(t);
+        });
+      });
+    </script>
+
+    <hr />
+    <h2>3. exif-js getAllTags // ok | 亂碼</h2>
+
+    <input type="file" id="myFileInput_3" />
+    <div id="desc_3" class="desc"></div>
+
+    <script>
+      const input_3 = document.getElementById("myFileInput_3");
+
+      input_3.addEventListener("change", function () {
+        let file = input_3.files[0];
+
+        EXIF.getData(file, function () {
+          const exifData = EXIF.getAllTags(this);
+          const myDesc = document.querySelector("#desc_3");
+
+          console.log(3, "exif-js", exifData);
+          myDesc.innerHTML = "3, " + JSON.stringify(exifData);
+        });
+      });
+    </script>
+
+    <!-- <hr />
+    <h2>2. web API FileList key // some, arrayBuffer (can not)</h2> -->
+    <!-- <form id="myForm">
+      <input type="file" id="myFileInput" multiple />
+    </form>
+    <div id="desc"  class="desc"></div>
+
+    <script>
+      const input = document.getElementById("myFileInput");
+      const myDesc = document.querySelector("#desc");
+
+      input.addEventListener("change", function () {
+        let files = input.files;
+        let txt = "";
+
+        for (let i in files) {
+          let l = 0;
+          for (let key in files[i]) {
+            l++;
+            let s = `"FileList: " ${i}-${l}:: ${key} :: ${files[i][key]}`;
+            console.log(s);
+            txt += s + "\n";
+          }
+        }
+        myDesc.innerHTML = txt;
+      });
+    </script> -->
+
+    <!-- <hr />
+    <h2>1. img.getAttribute(attr) // dom attr (can not)</h2> -->
+    <!-- <img id="ewe" src="./005.jpg" alt="" />
+    <script>
+      const img = document.querySelector("#ewe");
+      img.onload = function () {
+        const dateTaken = img.getAttribute("id");
+        console.log("img.getAttribute", dateTaken); // 只能找 dom 上的屬性
+      };
+    </script> -->
+
+    <!-- <hr />
+    <h2>5. FileReader.readAsDataURL // base64 (not right)</h2> -->
+    <!-- <form id="myForm">
+      <input type="file" id="myFileInput" accept="image/*" />
+    </form>
+    <script>
+      const input = document.getElementById("myFileInput");
+      input.addEventListener("change", function () {
+        let file = input.files[0];
+
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = function () {
+          const image = new Image();
+          image.src = reader.result;
+          image.onload = function () {
+            console.log("FileReader2 image", image); // base64
+          };
+        };
+      });
+    </script> -->
+  </body>
+</html>
